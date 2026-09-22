@@ -1,5 +1,4 @@
 'use client'
-
 import '@/app/globals.css'
 import { useEffect, useState } from 'react'
 import { DefaultChatTransport, ToolUIPart } from 'ai'
@@ -28,11 +27,13 @@ function Chat() {
     transport: new DefaultChatTransport({
       api: '/api/chat',
     }),
+ 
   })
 
   useEffect(() => {
     const fetchMessages = async () => {
       const res = await fetch('/api/chat')
+      console.log(res)
       const data = await res.json()
       console.log(data)
       setMessages([...data])

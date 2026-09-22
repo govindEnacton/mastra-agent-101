@@ -1,8 +1,9 @@
-import { handleChatStream } from '@mastra/ai-sdk'
+import { handleChatStream, } from '@mastra/ai-sdk'
 import { toAISdkMessages } from '@mastra/ai-sdk/ui'
 import { createUIMessageStreamResponse } from 'ai'
 import { mastra } from '@/mastra'
 import { NextResponse } from 'next/server'
+import { z } from 'zod'
 
 const THREAD_ID = 'example-user-id'
 const RESOURCE_ID = 'weather-chat'
@@ -15,13 +16,23 @@ export async function POST(req: Request) {
     version: 'v7',
     params: {
       ...params,
+      structuredOutput: {
+        schema: z.object({
+          location: z.string(),
+          temperature: z.number(),
+          conditions: z.string(),
+          recommendation: z.string(),
+        }),
+      },
       memory: {
         ...params.memory,
         thread: THREAD_ID,
         resource: RESOURCE_ID,
       },
     },
+
   })
+
   return createUIMessageStreamResponse({ stream })
 }
 
@@ -34,6 +45,7 @@ export async function GET() {
       threadId: THREAD_ID,
       resourceId: RESOURCE_ID,
     })
+    console.log(response)
   } catch {
     console.log('No previous messages found.')
   }
