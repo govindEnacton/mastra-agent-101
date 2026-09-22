@@ -6,15 +6,15 @@ import { DefaultChatTransport, ToolUIPart } from 'ai'
 import { useChat } from '@ai-sdk/react'
 
 import {
-PromptInput,
-PromptInputBody,
-PromptInputTextarea,
+  PromptInput,
+  PromptInputBody,
+  PromptInputTextarea,
 } from '@/components/ai-elements/prompt-input'
 
 import {
-Conversation,
-ConversationContent,
-ConversationScrollButton,
+  Conversation,
+  ConversationContent,
+  ConversationScrollButton,
 } from '@/components/ai-elements/conversation'
 
 import { Message, MessageContent, MessageResponse } from '@/components/ai-elements/message'
@@ -22,83 +22,84 @@ import { Message, MessageContent, MessageResponse } from '@/components/ai-elemen
 import { Tool, ToolHeader, ToolContent, ToolInput, ToolOutput } from '@/components/ai-elements/tool'
 
 function Chat() {
-const [input, setInput] = useState<string>('')
+  const [input, setInput] = useState<string>('')
 
   const { messages, setMessages, sendMessage, status } = useChat({
-  transport: new DefaultChatTransport({
-  api: '/api/chat',
-  }),
+    transport: new DefaultChatTransport({
+      api: '/api/chat',
+    }),
   })
 
   useEffect(() => {
-  const fetchMessages = async () => {
-  const res = await fetch('/api/chat')
-  const data = await res.json()
-  setMessages([...data])
-  }
-  fetchMessages()
+    const fetchMessages = async () => {
+      const res = await fetch('/api/chat')
+      const data = await res.json()
+      console.log(data)
+      setMessages([...data])
+    }
+    fetchMessages()
   }, [setMessages])
 
   const handleSubmit = async () => {
-  if (!input.trim()) return
+    if (!input.trim()) return
 
-  sendMessage({ text: input })
-  setInput('')
+    sendMessage({ text: input })
+    setInput('')
   }
 
   return (
-  <div className="relative size-full h-screen w-full p-6">
+    <div className="relative size-full h-screen w-full p-6">
 
-    <PromptInput onSubmit={handleSubmit} className="mt-20">
-      <PromptInputBody>
-        <PromptInputTextarea onChange={e=> setInput(e.target.value)}
-          className="md:leading-10"
-          value={input}
-          placeholder="Type your message..."
-          disabled={status !== 'ready'}
+      <PromptInput onSubmit={handleSubmit} className="mt-20">
+        <PromptInputBody>
+          <PromptInputTextarea onChange={e => setInput(e.target.value)}
+            className="md:leading-10"
+            value={input}
+            placeholder="Type your message..."
+            disabled={status !== 'ready'}
           />
-      </PromptInputBody>
-    </PromptInput>
-    <div className="flex h-full flex-col border-white border scrollbar-none">
-      <Conversation className="h-full">
-        <ConversationContent>
-          {messages.map(message => (
-          <div key={message.id}>
-            {message.parts?.map((part, i) => {
-            if (part.type === 'text') {
-            return (
-            <Message key={`${message.id}-${i}`} from={message.role}>
-              <MessageContent>
-                <MessageResponse>{part.text}</MessageResponse>
-              </MessageContent>
-            </Message>
-            )
-            }
+        </PromptInputBody>
+      </PromptInput>
+      <div className="flex h-full flex-col border-white border scrollbar-none">
+        <Conversation className="h-full">
+          <ConversationContent>
+            {messages.map(message => (
+              <div key={message.id}>
+                {message.parts?.map((part, i) => {
+                  if (part.type === 'text') {
+                    return (
+                      <Message key={`${message.id}-${i}`} from={message.role}>
+                        <MessageContent>
+                          <MessageResponse>{part.text}</MessageResponse>
+                        </MessageContent>
+                      </Message>
+                    )
+                  }
 
-            if (part.type?.startsWith('tool-')) {
-            return (
-            <Tool key={`${message.id}-${i}`}>
-              <ToolHeader type={(part as ToolUIPart).type} state={(part as ToolUIPart).state || 'output-available' }
-                className="cursor-pointer" />
-              <ToolContent>
-                <ToolInput input={(part as ToolUIPart).input || {}} />
-                <ToolOutput output={(part as ToolUIPart).output} errorText={(part as ToolUIPart).errorText} />
-              </ToolContent>
-            </Tool>
-            )
-            }
+                  if (part.type?.startsWith('tool-')) {
+                    return (
+                      <Tool key={`${message.id}-${i}`}>
+                        <ToolHeader type={(part as ToolUIPart).type} state={(part as ToolUIPart).state || 'output-available'}
+                          className="cursor-pointer" />
+                        <ToolContent>
+                          <ToolInput input={(part as ToolUIPart).input || {}} />
+                          <ToolOutput output={(part as ToolUIPart).output} errorText={(part as ToolUIPart).errorText} />
+                        </ToolContent>
+                      </Tool>
+                    )
+                  }
 
-            return null
-            })}
-          </div>
-          ))}
-          <ConversationScrollButton />
-        </ConversationContent>
-      </Conversation>
+                  return null
+                })}
+              </div>
+            ))}
+            <ConversationScrollButton />
+          </ConversationContent>
+        </Conversation>
 
+      </div>
     </div>
-  </div>
   )
-  }
+}
 
-  export default Chat
+export default Chat
