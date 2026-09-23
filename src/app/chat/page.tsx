@@ -27,7 +27,6 @@ function Chat() {
     transport: new DefaultChatTransport({
       api: '/api/chat',
     }),
- 
   })
 
   useEffect(() => {
@@ -67,6 +66,7 @@ function Chat() {
             {messages.map(message => (
               <div key={message.id}>
                 {message.parts?.map((part, i) => {
+                  // 1. Plain text reply from the agent
                   if (part.type === 'text') {
                     return (
                       <Message key={`${message.id}-${i}`} from={message.role}>
@@ -77,16 +77,42 @@ function Chat() {
                     )
                   }
 
+                  // 2. Tool calls (weatherTool etc.)
                   if (part.type?.startsWith('tool-')) {
                     return (
                       <Tool key={`${message.id}-${i}`}>
-                        <ToolHeader type={(part as ToolUIPart).type} state={(part as ToolUIPart).state || 'output-available'}
-                          className="cursor-pointer" />
+                        <ToolHeader
+                          type={(part as ToolUIPart).type}
+                          state={(part as ToolUIPart).state || 'output-available'}
+                          className="cursor-pointer"
+                        />
                         <ToolContent>
                           <ToolInput input={(part as ToolUIPart).input || {}} />
-                          <ToolOutput output={(part as ToolUIPart).output} errorText={(part as ToolUIPart).errorText} />
+                          <ToolOutput
+                            output={(part as ToolUIPart).output}
+                            errorText={(part as ToolUIPart).errorText}
+                          />
                         </ToolContent>
                       </Tool>
+                    )
+                  }
+
+                  // 3. Structured output (the Zod-validated object)
+                  if (part.type === 'data-structured-output') {
+                    const structuredData = (part as any).data?.object
+                    if (!structuredData) return null
+
+                    return (
+                      <Message key={`${message.id}-${i}`} from={message.role}>
+                        <MessageContent>
+                          <div className="rounded-lg border bg-muted p-4 text-sm">
+                            <div className="mb-2 font-semibold">Structured Output</div>
+                            <pre className="whitespace-pre-wrap">
+                              {JSON.stringify(structuredData, null, 2)}
+                            </pre>
+                          </div>
+                        </MessageContent>
+                      </Message>
                     )
                   }
 
