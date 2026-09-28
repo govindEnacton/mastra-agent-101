@@ -6,7 +6,7 @@ export const openrouter = createOpenAI({
 });
  
 const primaryModelId = (process.env.OPENROUTER_MODEL ??
-  "nex-agi/nex-n2.5-mini:free") as `${string}/${string}`;
+  "inclusionai/ling-3.0-flash-fin:free") as `${string}/${string}`;
  
 export const openrouterModel = {
   id: primaryModelId,
@@ -15,7 +15,7 @@ export const openrouterModel = {
 } as const;
  
 const fallbackModelId = (process.env.OPENROUTER_FALLBACK_MODEL ??
-  "inclusionai/ling-3.0-flash-sante:free") as `${string}/${string}`;
+  "inclusionai/ling-3.0-flash-fin:free") as `${string}/${string}`;
  
 export const openrouterModels = [
   {

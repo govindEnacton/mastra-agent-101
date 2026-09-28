@@ -20,6 +20,11 @@ import { Message, MessageContent, MessageResponse } from '@/components/ai-elemen
 
 import { Tool, ToolHeader, ToolContent, ToolInput, ToolOutput } from '@/components/ai-elements/tool'
 
+type StructuredOutputPart = {
+  type: string
+  data?: { object?: unknown }
+}
+
 function Chat() {
   const [input, setInput] = useState<string>('')
 
@@ -63,11 +68,21 @@ function Chat() {
       <div className="flex h-full flex-col border-white border scrollbar-none">
         <Conversation className="h-full">
           <ConversationContent>
-            {messages.map(message => (
+            {messages.map(message => {
+              const parts = message.parts ?? []
+              const hasStructuredOutput = parts.some(
+                (part) =>
+                  part.type === 'data-structured-output' &&
+                  (part as StructuredOutputPart).data?.object
+              )
+
+              return (
               <div key={message.id}>
-                {message.parts?.map((part, i) => {
-                  // 1. Plain text reply from the agent
+                {parts.map((part, i) => {
+                  // 1. Plain text reply from the agent. Skipped when the agent also
+                  // returned structured output, since the text part is just the raw JSON.
                   if (part.type === 'text') {
+                    if (hasStructuredOutput) return null
                     return (
                       <Message key={`${message.id}-${i}`} from={message.role}>
                         <MessageContent>
@@ -99,7 +114,7 @@ function Chat() {
 
                   // 3. Structured output (the Zod-validated object)
                   if (part.type === 'data-structured-output') {
-                    const structuredData = (part as any).data?.object
+                    const structuredData = (part as StructuredOutputPart).data?.object
                     if (!structuredData) return null
 
                     return (
@@ -119,7 +134,8 @@ function Chat() {
                   return null
                 })}
               </div>
-            ))}
+              )
+            })}
             <ConversationScrollButton />
           </ConversationContent>
         </Conversation>

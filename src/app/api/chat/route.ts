@@ -23,6 +23,7 @@ export async function POST(req: Request) {
           conditions: z.string(),
           recommendation: z.string(),
         }),
+        jsonPromptInjection: 'inline',
       },
       memory: {
         ...params.memory,
