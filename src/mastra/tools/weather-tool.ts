@@ -1,30 +1,42 @@
 import { createTool } from '@mastra/core/tools';
 import { z } from 'zod';
 
-interface GeocodingResponse {
-  results: {
-    latitude: number;
-    longitude: number;
-    name: string;
-  }[];
-}
-interface WeatherResponse {
-  current: {
-    time: string;
-    temperature_2m: number;
-    apparent_temperature: number;
-    relative_humidity_2m: number;
-    wind_speed_10m: number;
-    wind_gusts_10m: number;
-    weather_code: number;
-  };
+const geocodingSchema = z.object({
+  results: z.array(z.object({
+    latitude: z.number(),
+    longitude: z.number(),
+    name: z.string(),
+  })).optional(),
+});
+
+const weatherResponseSchema = z.object({
+  current: z.object({
+    time: z.string(),
+    temperature_2m: z.number(),
+    apparent_temperature: z.number(),
+    relative_humidity_2m: z.number(),
+    wind_speed_10m: z.number(),
+    wind_gusts_10m: z.number(),
+    weather_code: z.number(),
+  }),
+});
+
+async function fetchJson(url: string, service: string, abortSignal?: AbortSignal) {
+  const timeout = AbortSignal.timeout(10_000);
+  const response = await fetch(url, {
+    signal: abortSignal ? AbortSignal.any([abortSignal, timeout]) : timeout,
+  });
+  if (!response.ok) {
+    throw new Error(`${service} request failed (${response.status})`);
+  }
+  return response.json();
 }
 
 export const weatherTool = createTool({
   id: 'get-weather',
   description: 'Get current weather for a location',
   inputSchema: z.object({
-    location: z.string().describe('City name'),
+    location: z.string().trim().min(1).max(200).describe('City name'),
   }),
   outputSchema: z.object({
     temperature: z.number(),
@@ -34,16 +46,27 @@ export const weatherTool = createTool({
     windGust: z.number(),
     conditions: z.string(),
     location: z.string(),
+    observedAt: z.string(),
+    timezone: z.literal('UTC'),
+    units: z.object({
+      temperature: z.literal('°C'),
+      humidity: z.literal('%'),
+      windSpeed: z.literal('km/h'),
+    }),
+    sourceUrl: z.url(),
   }),
-  execute: async (inputData) => {
-    return await getWeather(inputData.location);
+  execute: async (inputData, context) => {
+    return await getWeather(inputData.location, context?.abortSignal);
   },
 });
 
-const getWeather = async (location: string) => {
+const getWeather = async (location: string, abortSignal?: AbortSignal) => {
   const geocodingUrl = `https://geocoding-api.open-meteo.com/v1/search?name=${encodeURIComponent(location)}&count=1`;
-  const geocodingResponse = await fetch(geocodingUrl);
-  const geocodingData = (await geocodingResponse.json()) as GeocodingResponse;
+  const geocodingResult = geocodingSchema.safeParse(await fetchJson(geocodingUrl, 'Geocoding', abortSignal));
+  if (!geocodingResult.success) {
+    throw new Error('Geocoding returned invalid location data');
+  }
+  const geocodingData = geocodingResult.data;
 
   if (!geocodingData.results?.[0]) {
     throw new Error(`Location '${location}' not found`);
@@ -51,10 +74,13 @@ const getWeather = async (location: string) => {
 
   const { latitude, longitude, name } = geocodingData.results[0];
 
-  const weatherUrl = `https://api.open-meteo.com/v1/forecast?latitude=${latitude}&longitude=${longitude}&current=temperature_2m,apparent_temperature,relative_humidity_2m,wind_speed_10m,wind_gusts_10m,weather_code`;
+  const weatherUrl = `https://api.open-meteo.com/v1/forecast?latitude=${latitude}&longitude=${longitude}&current=temperature_2m,apparent_temperature,relative_humidity_2m,wind_speed_10m,wind_gusts_10m,weather_code&temperature_unit=celsius&wind_speed_unit=kmh&timezone=UTC`;
 
-  const response = await fetch(weatherUrl);
-  const data = (await response.json()) as WeatherResponse;
+  const weatherResult = weatherResponseSchema.safeParse(await fetchJson(weatherUrl, 'Weather', abortSignal));
+  if (!weatherResult.success) {
+    throw new Error('Weather service returned invalid current conditions');
+  }
+  const data = weatherResult.data;
 
   return {
     temperature: data.current.temperature_2m,
@@ -64,6 +90,10 @@ const getWeather = async (location: string) => {
     windGust: data.current.wind_gusts_10m,
     conditions: getWeatherCondition(data.current.weather_code),
     location: name,
+    observedAt: `${data.current.time}Z`,
+    timezone: 'UTC' as const,
+    units: { temperature: '°C', humidity: '%', windSpeed: 'km/h' } as const,
+    sourceUrl: weatherUrl,
   };
 };
 

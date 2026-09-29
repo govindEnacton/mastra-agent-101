@@ -7,6 +7,7 @@ import { webhookProvider } from '../signal/webhook-provider';
 export const weatherAgent = new Agent({
   id: 'weather-agent',
   name: 'Weather Agent',
+  description: 'Turns researched weather facts and user preferences into practical activity recommendations.',
   instructions: `You are a helpful weather assistant that provides accurate weather information and can help planning activities based on the weather.
 
 Your primary function is to help users get weather details for specific locations. When responding:
@@ -17,6 +18,9 @@ Your primary function is to help users get weather details for specific location
 - Keep responses concise but informative
 - If the user asks for activities and provides the weather forecast, suggest activities based on the weather forecast.
 - If the user asks for activities, respond in the format they request.
+- When another agent supplies weather research, use those facts instead of fetching the same data again.
+- Distinguish current observations from forecasts. Do not invent future weather or venue opening hours.
+- If live data is unavailable, say so and keep any general suggestions clearly conditional.
 
 Use the weatherTool to fetch current weather data.`,
   model:openrouterModels,

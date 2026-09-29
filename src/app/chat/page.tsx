@@ -1,148 +1,143 @@
 'use client'
-import '@/app/globals.css'
-import { useEffect, useState } from 'react'
-import { DefaultChatTransport, ToolUIPart } from 'ai'
-import { useChat } from '@ai-sdk/react'
 
+import { useEffect, useState } from 'react'
+import { DefaultChatTransport, isToolUIPart } from 'ai'
+import { useChat } from '@ai-sdk/react'
+import { getStructuredResponse } from '@/lib/structured-response'
 import {
   PromptInput,
   PromptInputBody,
+  PromptInputFooter,
   PromptInputTextarea,
 } from '@/components/ai-elements/prompt-input'
-
 import {
   Conversation,
   ConversationContent,
   ConversationScrollButton,
 } from '@/components/ai-elements/conversation'
-
 import { Message, MessageContent, MessageResponse } from '@/components/ai-elements/message'
-
 import { Tool, ToolHeader, ToolContent, ToolInput, ToolOutput } from '@/components/ai-elements/tool'
 
-type StructuredOutputPart = {
-  type: string
-  data?: { object?: unknown }
-}
-
-function Chat() {
-  const [input, setInput] = useState<string>('')
-
-  const { messages, setMessages, sendMessage, status } = useChat({
-    transport: new DefaultChatTransport({
-      api: '/api/chat',
-    }),
+export default function Chat() {
+  const [input, setInput] = useState('')
+  const [loadingHistory, setLoadingHistory] = useState(true)
+  const [historyError, setHistoryError] = useState<string>()
+  const { messages, setMessages, sendMessage, status, error } = useChat({
+    transport: new DefaultChatTransport({ api: '/api/chat' }),
   })
+  const busy = status === 'submitted' || status === 'streaming'
 
   useEffect(() => {
+    const controller = new AbortController()
     const fetchMessages = async () => {
-      const res = await fetch('/api/chat')
-      console.log(res)
-      const data = await res.json()
-      console.log(data)
-      setMessages([...data])
+      try {
+        const res = await fetch('/api/chat', { signal: controller.signal })
+        if (!res.ok) throw new Error('Unable to load conversation history.')
+        const data = await res.json()
+        if (!Array.isArray(data)) throw new Error('Invalid conversation history.')
+        if (!controller.signal.aborted) setMessages(data)
+      } catch {
+        if (!controller.signal.aborted) {
+          setHistoryError('Could not load earlier messages. You can still send a new message.')
+        }
+      } finally {
+        if (!controller.signal.aborted) setLoadingHistory(false)
+      }
     }
-    fetchMessages()
+    void fetchMessages()
+    return () => controller.abort()
   }, [setMessages])
 
   const handleSubmit = async () => {
-    if (!input.trim()) return
-
-    sendMessage({ text: input })
+    if (!input.trim() || busy || loadingHistory) return
+    const text = input.trim()
     setInput('')
+    await sendMessage({ text })
   }
 
   return (
-    <div className="relative size-full h-screen w-full p-6">
+    <main className="flex h-screen w-full flex-col gap-4 p-6">
+      <header>
+        <h1 className="text-xl font-semibold">Research assistant</h1>
+        <p className="text-sm text-muted-foreground">
+          Ask about any topic, compare ideas, or plan activities using current weather.
+        </p>
+      </header>
 
-      <PromptInput onSubmit={handleSubmit} className="mt-20">
-        <PromptInputBody>
-          <PromptInputTextarea onChange={e => setInput(e.target.value)}
-            className="md:leading-10"
-            value={input}
-            placeholder="Type your message..."
-            disabled={status !== 'ready'}
-          />
-        </PromptInputBody>
-      </PromptInput>
-      <div className="flex h-full flex-col border-white border scrollbar-none">
-        <Conversation className="h-full">
-          <ConversationContent>
-            {messages.map(message => {
-              const parts = message.parts ?? []
-              const hasStructuredOutput = parts.some(
-                (part) =>
-                  part.type === 'data-structured-output' &&
-                  (part as StructuredOutputPart).data?.object
-              )
-
-              return (
+      <Conversation className="min-h-0 flex-1 rounded-lg border">
+        <ConversationContent>
+          {loadingHistory && <p role="status">Loading conversation…</p>}
+          {messages.map(message => {
+            const structuredData = getStructuredResponse(message)
+            return (
               <div key={message.id}>
-                {parts.map((part, i) => {
-                  // 1. Plain text reply from the agent. Skipped when the agent also
-                  // returned structured output, since the text part is just the raw JSON.
-                  if (part.type === 'text') {
-                    if (hasStructuredOutput) return null
+                {message.parts.map((part, i) => {
+                  if (part.type === 'text' && !structuredData) {
                     return (
                       <Message key={`${message.id}-${i}`} from={message.role}>
-                        <MessageContent>
-                          <MessageResponse>{part.text}</MessageResponse>
-                        </MessageContent>
+                        <MessageContent><MessageResponse>{part.text}</MessageResponse></MessageContent>
                       </Message>
                     )
                   }
 
-                  // 2. Tool calls (weatherTool etc.)
-                  if (part.type?.startsWith('tool-')) {
+                  if (isToolUIPart(part)) {
                     return (
                       <Tool key={`${message.id}-${i}`}>
-                        <ToolHeader
-                          type={(part as ToolUIPart).type}
-                          state={(part as ToolUIPart).state || 'output-available'}
-                          className="cursor-pointer"
-                        />
+                        {part.type === 'dynamic-tool' ? (
+                          <ToolHeader type={part.type} state={part.state} toolName={part.toolName} />
+                        ) : (
+                          <ToolHeader type={part.type} state={part.state} />
+                        )}
                         <ToolContent>
-                          <ToolInput input={(part as ToolUIPart).input || {}} />
-                          <ToolOutput
-                            output={(part as ToolUIPart).output}
-                            errorText={(part as ToolUIPart).errorText}
-                          />
+                          <ToolInput input={part.input ?? {}} />
+                          <ToolOutput output={part.output} errorText={part.errorText} />
                         </ToolContent>
                       </Tool>
                     )
                   }
-
-                  // 3. Structured output (the Zod-validated object)
-                  if (part.type === 'data-structured-output') {
-                    const structuredData = (part as StructuredOutputPart).data?.object
-                    if (!structuredData) return null
-
-                    return (
-                      <Message key={`${message.id}-${i}`} from={message.role}>
-                        <MessageContent>
-                          <div className="rounded-lg border bg-muted p-4 text-sm">
-                            <div className="mb-2 font-semibold">Structured Output</div>
-                            <pre className="whitespace-pre-wrap">
-                              {JSON.stringify(structuredData, null, 2)}
-                            </pre>
-                          </div>
-                        </MessageContent>
-                      </Message>
-                    )
-                  }
-
                   return null
                 })}
+                {structuredData && (
+                  <Message from={message.role}>
+                    <MessageContent>
+                      <div className="rounded-lg border bg-muted p-4 text-sm">
+                        <div className="mb-2 font-semibold">Structured Output</div>
+                        <pre className="whitespace-pre-wrap break-words">
+                          {JSON.stringify(structuredData, null, 2)}
+                        </pre>
+                      </div>
+                    </MessageContent>
+                  </Message>
+                )}
               </div>
-              )
-            })}
-            <ConversationScrollButton />
-          </ConversationContent>
-        </Conversation>
+            )
+          })}
+          {busy && <p role="status" className="text-sm text-muted-foreground">Agents are working…</p>}
+        </ConversationContent>
+        <ConversationScrollButton />
+      </Conversation>
 
-      </div>
-    </div>
+      {historyError && <p role="alert" className="text-sm text-destructive">{historyError}</p>}
+      {error && <p role="alert" className="text-sm text-destructive">The assistant could not finish the response. Please try again.</p>}
+      <PromptInput onSubmit={handleSubmit}>
+        <PromptInputBody>
+          <PromptInputTextarea
+            onChange={e => setInput(e.target.value)}
+            value={input}
+            placeholder="For example: Compare TypeScript and JavaScript"
+            disabled={busy || loadingHistory}
+          />
+        </PromptInputBody>
+        <PromptInputFooter>
+          <button
+            type="submit"
+            className="rounded-md bg-primary px-4 py-2 text-sm text-primary-foreground disabled:opacity-50"
+            disabled={busy || loadingHistory || !input.trim()}
+          >
+            Send
+          </button>
+        </PromptInputFooter>
+      </PromptInput>
+    </main>
   )
 }
-
-export default Chat

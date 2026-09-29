@@ -6,7 +6,9 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "eslint"
+    "lint": "eslint",
+    "test": "bun test ./tests",
+    "smoke": "bun run scripts/smoke-agents.ts"
   },
   "dependencies": {
     "@ai-sdk/openai": "^4.0.72",
