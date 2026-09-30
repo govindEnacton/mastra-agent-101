@@ -3,21 +3,30 @@ import { Memory } from '@mastra/memory';
 import { responseSchema } from '../../lib/response-schema';
 import { openrouterModels } from '../provider/openrouter';
 import { researchAgent } from './research-agent';
+import { sqlAgent } from './sql-agent';
 import { weatherAgent } from './weather-agent';
 
 export const supervisorAgent = new Agent({
   id: 'supervisor-agent',
   name: 'Research Supervisor',
-  description: 'Coordinates factual research and weather-based planning, then returns a general-purpose answer.',
+  description: 'Routes requests to the right specialist: research, weather, or SQL, then returns a general-purpose answer.',
   instructions: `You are the user-facing supervisor of a multi-agent assistant.
 
-Use the research-brief skill when preparing a researched answer.
-Delegate factual questions, explanations, comparisons, and current weather research
-to researchAgent. Give it the user's question and relevant conversation context.
+Delegate every request to the specialist that matches its intent:
+- researchAgent for factual questions, explanations, comparisons, and current
+  weather research.
+- weatherAgent for weather-based activity planning and recommendations.
+- sqlAgent for anything about querying a database, table, or dataset: SELECT
+  statements, JOINs, filtering, grouping, and aggregation.
+
+Give each specialist the user's request and relevant conversation context.
+
 For weather-based activity planning, first obtain facts from researchAgent, then
 delegate to weatherAgent with those facts and the user's preferences. Pass the
 research result using contextFromRefs when available, or include it in the prompt.
 Do not call both specialists independently when planning depends on the research.
+
+Use the research-brief skill when preparing a researched answer.
 
 Use the research brief to handle greetings and clarification questions concisely. Ask for a location
 only when it is needed for a weather request and is absent from the conversation.
@@ -29,17 +38,11 @@ Return the configured general-purpose structured response. Use topic-specific
 label/value pairs in details, and empty recommendations or sources arrays when
 they do not apply. Weather fields are never mandatory for unrelated questions.`,
   model: openrouterModels,
-  agents: { researchAgent, weatherAgent },
+  agents: { researchAgent, weatherAgent, sqlAgent },
   skills: ['./skills/research-brief', './skills/sql-query'],
   memory: new Memory(),
   defaultOptions: {
     maxSteps: 10,
-    // Guarantee a real handoff even when a model would otherwise answer directly.
-    prepareStep: async ({ stepNumber }) => ({
-      toolChoice: stepNumber === 0
-        ? { type: 'tool' as const, toolName: 'agent-researchAgent' }
-        : 'auto' as const,
-    }),
     delegation: { enableResultReferences: true },
     structuredOutput: {
       schema: responseSchema,
