@@ -1,6 +1,7 @@
 import { Agent } from "@mastra/core/agent";
 import { Memory } from "@mastra/memory";
 import { weatherTool } from "../tools/weather-tool";
+import { distanceTool } from "../tools/distance-tool";
 import { openrouterModels } from "../provider/openrouter";
 
 export const researchAgent = new Agent({
@@ -43,6 +44,7 @@ Leave final recommendations and presentation to the requesting agent.
 
   tools: {
     weatherTool,
+    distanceTool
   },
 
   skills: ['./skills/research-brief', './skills/sql-query'],

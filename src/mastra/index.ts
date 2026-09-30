@@ -11,12 +11,15 @@ import { researchAgent } from './agents/research-agent';
 import { sqlAgent } from './agents/sql-agent';
 import { supervisorAgent } from './agents/supervisor-agent';
 import { weatherTool } from './tools/weather-tool';
+import { distanceTool } from './tools/distance-tool';
 import { greetTool } from './tools/greet-tool';
+import { typeCheckTool } from './tools/type-check-tool';
+import { auditAgent } from './agents/audit-agent';
 
 export const mastra = new Mastra({
   workflows: { weatherWorkflow },
-  agents: { supervisorAgent, researchAgent, weatherAgent, sqlAgent },
-  tools: { weatherTool, greetTool },
+agents: { supervisorAgent, researchAgent, weatherAgent, sqlAgent, auditAgent },
+tools: { weatherTool, greetTool, distanceTool, typeCheckTool },
   storage: new MastraCompositeStore({
     id: 'composite-storage',
     default: new LibSQLStore({
