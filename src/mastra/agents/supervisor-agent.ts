@@ -30,7 +30,7 @@ label/value pairs in details, and empty recommendations or sources arrays when
 they do not apply. Weather fields are never mandatory for unrelated questions.`,
   model: openrouterModels,
   agents: { researchAgent, weatherAgent },
-  skills: ['./skills/research-brief'],
+  skills: ['./skills/research-brief', './skills/sql-query'],
   memory: new Memory(),
   defaultOptions: {
     maxSteps: 10,

@@ -2,7 +2,7 @@ import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
   outputFileTracingIncludes: {
-    '/api/chat': ['./skills/research-brief/**/*'],
+    '/api/chat': ['./skills/research-brief/**/*', './skills/sql-query/**/*'],
   },
   serverExternalPackages: [
     "@mastra/*",

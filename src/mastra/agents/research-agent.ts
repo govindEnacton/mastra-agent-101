@@ -45,7 +45,7 @@ Leave final recommendations and presentation to the requesting agent.
     weatherTool,
   },
 
-  skills: ['./skills/research-brief'],
+  skills: ['./skills/research-brief', './skills/sql-query'],
   defaultOptions: { maxSteps: 6 },
   memory: new Memory(),
 });
